@@ -1,37 +1,107 @@
 const bing_api_endpoint = "https://api.bing.microsoft.com/v7.0/images/search";
-const bing_api_key = BING_API_KEY
+const bing_api_key = BING_API_KEY;
 
 function runSearch() {
-
-  // TODO: Clear the results pane before you run a new search
+  const results = document.getElementById("resultsImageContainer");
+  const results_length = results.children.length;
+  for (let i = results_length - 1 ; i >=0 ; i--){
+    results.removeChild(results.children[i]);
+  }
 
   openResultsPane();
 
-  // TODO: Build your query by combining the bing_api_endpoint and a query attribute
-  //  named 'q' that takes the value from the search bar input field.
+  let search_input = document.querySelector(".search input");
+  let query = search_input.value;
+
+  if (!query){
+    return false
+  }
+
+  let encoded_query = encodeURIComponent(query);
 
   let request = new XMLHttpRequest();
+  request.open("GET", `${bing_api_endpoint}?q=${encoded_query}`);
+  request.responseType = "json";
 
-  // TODO: Construct the request object and add appropriate event listeners to
-  // handle responses. See:
-  // https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest_API/Using_XMLHttpRequest
-  //
-  //   - You'll want to specify that you want json as your response type
-  //   - Look for your data in event.target.response
-  //   - When adding headers, also include the commented out line below. See the API docs at:
-  // https://docs.microsoft.com/en-us/bing/search-apis/bing-image-search/reference/headers
-  //   - When you get your responses, add elements to the DOM in #resultsImageContainer to
-  //     display them to the user
-  //   - HINT: You'll need to ad even listeners to them after you add them to the DOM
-  //
-  // request.setRequestHeader("Ocp-Apim-Subscription-Key", bing_api_key);
+  request.setRequestHeader("Ocp-Apim-Subscription-Key", bing_api_key);
+  request.addEventListener("load",() => handleResponse(request));
+  
+  request.send();
 
-  // TODO: Send the request
-
-  return false;  // Keep this; it keeps the browser from sending the event
-                  // further up the DOM chain. Here, we don't want to trigger
-                  // the default form submission behavior.
+  return false; 
 }
+
+function handleResponse(request) {
+  if (request.status >= 200 && request.status < 300){
+
+    let images = request.response.value;
+    let results = document.getElementById("resultsImageContainer");
+    
+    images.forEach(image => {
+      let div = document.createElement("div");
+      div.className = "resultImage";
+  
+      let img = document.createElement("img");
+
+      img.setAttribute("src",image.thumbnailUrl);
+      img.setAttribute("alt",image.name);
+      
+      div.appendChild(img);
+      div.addEventListener("click",() => addSelectedImage(image.contentUrl));
+    
+      clearSearches();
+      updateSuggestedSearches(request.response.relatedSearches);
+    
+      results.appendChild(div);
+
+    });
+  }
+  else{
+    console.error("Error:",request.statusText);
+  }
+}
+
+function addSelectedImage(contentUrl){
+
+  let board = document.getElementById("board");
+
+  const div = document.createElement("div");
+
+  div.className = "savedImage";
+  div.innerHTML = `<img src="${contentUrl}">`;
+
+  board.appendChild(div);
+}
+
+function clearSearches() {
+  const suggestedSearches = document.getElementById('suggestedSearches');
+  
+  while (suggestedSearches.firstChild) {
+    suggestedSearches.removeChild(suggestedSearches.firstChild);
+  }
+}
+
+function updateSuggestedSearches(searches) {
+  const suggestedSearches = document.getElementById("suggestedSearches");
+  
+  searches.forEach(item => {
+    const searchItem = document.createElement('li');
+    searchItem.innerHTML = `${item.text}`;
+    suggestedSearches.appendChild(searchItem);
+
+    const suggestionsitem = document.querySelectorAll('.suggestions li');
+    suggestionsitem.forEach(item => {
+    
+      item.addEventListener('click', (e) => {
+        const query = e.target.innerText;
+        document.querySelector('.search input').value = query;
+        runSearch();
+      });
+    });
+
+  });
+}
+
 
 function openResultsPane() {
   // This will make the results pane visible.
